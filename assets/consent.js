@@ -163,11 +163,18 @@
       params: params || {}
     });
     try {
-      if (navigator.sendBeacon) {
-        navigator.sendBeacon(CAPI_ENDPOINT, new Blob([body], { type: 'application/json' }));
-      } else {
+      /* text/plain haelt die Anfrage im "simple request"-Bereich. application/json macht
+         sie preflight-pflichtig, und diesen CORS-Preflight schliesst sendBeacon beim
+         Verlassen der Seite nicht zuverlaessig ab: der Aufruf gibt true zurueck, die
+         Anfrage verlaesst den Browser aber nie. Zwischen dem 03.09.2026 und dem
+         07.09.2026 kam so kein einziges Ereignis am Server an, bei 118 gezaehlten
+         PageViews. Der Server parst den String, der Content-Type ist ihm egal.
+         Der fetch greift jetzt auch, wenn sendBeacon false liefert - vorher hing er
+         hinter else und lief nie, weil sendBeacon immer vorhanden ist. */
+      var blob = new Blob([body], { type: 'text/plain;charset=UTF-8' });
+      if (!(navigator.sendBeacon && navigator.sendBeacon(CAPI_ENDPOINT, blob))) {
         fetch(CAPI_ENDPOINT, { method: 'POST', body: body, keepalive: true,
-                               headers: { 'Content-Type': 'application/json' } });
+                               headers: { 'Content-Type': 'text/plain;charset=UTF-8' } });
       }
     } catch (e) { /* Tracking darf die Seite nie kaputt machen */ }
   }
